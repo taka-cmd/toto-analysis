@@ -3,10 +3,14 @@ import pandas as pd
 from google.oauth2 import service_account
 import json
 
-# StreamlitのSecretsから鍵を読み込む（辞書型に変換）
+# StreamlitのSecretsから鍵を読み込む
 if "gcp_service_account" in st.secrets:
-    # 修正ポイント：文字列で入っているJSONを辞書形式に戻す
+    # JSON文字列を辞書形式に変換
     info = json.loads(st.secrets["gcp_service_account"]["json_key"])
+    
+    # 修正ポイント：秘密鍵の改行文字を正しく処理する
+    info["private_key"] = info["private_key"].replace("\\n", "\n")
+    
     credentials = service_account.Credentials.from_service_account_info(info)
 else:
     st.error("Secretsに鍵（JSON）が設定されていません。")
