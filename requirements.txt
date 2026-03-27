@@ -1,0 +1,3 @@
+google-oauth2
+gspread-pandas
+pandas
