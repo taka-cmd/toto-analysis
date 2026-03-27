@@ -1,38 +1,29 @@
 import streamlit as st
 from google.oauth2 import service_account
-import json
 import re
 
-st.set_page_config(page_title="toto分析システム")
 st.title("🏆 toto 2等・3等 照準分析システム")
 
-try:
-    if "gcp_service_account" in st.secrets:
-        # Secretsから辞書として取得
+if "gcp_service_account" in st.secrets:
+    try:
         info = dict(st.secrets["gcp_service_account"])
-        
-        # 秘密鍵を文字列として取り出し、徹底的に洗浄
         key = str(info["private_key"])
         
-        # 【最重要】先頭と末尾の目に見えないゴミ（BOM、特殊スペース、改行）を物理的に削ぎ落とす
-        key = key.strip().encode('utf-8').decode('utf-8-sig')
+        # 1. 徹底洗浄：PEMヘッダーや改行コード、スペースをすべて一度消し去る
+        clean_key = key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+        clean_key = clean_key.replace("\\n", "").replace("\n", "").replace(" ", "").strip()
         
-        # 鍵の中身にある「\\n」を本物の改行に変換し、余計な空白を詰める
-        key = key.replace("\\n", "\n").replace(" ", "")
+        # 2. 強制再構築：Googleが求める正しいPEM形式に「型」をはめ直す
+        formatted_key = "-----BEGIN PRIVATE KEY-----\n" + clean_key + "\n-----END PRIVATE KEY-----\n"
+        info["private_key"] = formatted_key
         
-        # 鍵のヘッダーとフッターの形式をGoogleが喜ぶ形に強制整形
-        key = key.replace("-----BEGINPRIVATEKEY-----", "-----BEGIN PRIVATE KEY-----\n")
-        key = key.replace("-----ENDPRIVATEKEY-----", "\n-----END PRIVATE KEY-----")
-        
-        info["private_key"] = key
-        
-        # 認証実行
+        # 3. 認証実行
         credentials = service_account.Credentials.from_service_account_info(info)
-        
-        st.success("✅ ついに、ついに連携に成功しました！")
+        st.success("✅ ついに成功しました！完全勝利です！")
         st.balloons()
-        st.info("隆生さん、本当にお疲れ様でした！今すぐiPhoneでURLを開いてください！")
-    else:
-        st.error("Secretsが設定されていません。")
-except Exception as e:
-    st.error(f"❌ 認証エラー: {e}")
+        st.info("隆生さん、お疲れ様でした！これでiPhoneから自由に分析できます！")
+        
+    except Exception as e:
+        st.error(f"❌ 認証エラー: {e}")
+else:
+    st.error("Secretsを設定してください")
