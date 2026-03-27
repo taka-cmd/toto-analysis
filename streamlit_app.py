@@ -1,34 +1,37 @@
 import streamlit as st
 from google.oauth2 import service_account
 import json
-import re
 
+st.set_page_config(page_title="toto分析システム", layout="wide")
 st.title("🏆 toto 2等・3等 照準分析システム")
 
+# 1. Secretsの存在チェック
+if "gcp_service_account" not in st.secrets:
+    st.error("❌ StreamlitのSecrets設定が空っぽです。")
+    st.stop()
+
 try:
-    if "gcp_service_account" in st.secrets:
-        # 1. SecretsからJSONを取り出す
-        raw_json = st.secrets["gcp_service_account"]["json_key"]
-        
-        # 2. 辞書形式に変換
-        info = json.loads(raw_json, strict=False)
-        
-        # 3. 【最重要】鍵の文字列を強制クリーニング
-        # 前後の空白を消し、中の改行文字（\n）を本物の改行に変換し、
-        # さらに変なスペースや重複した改行をすべて掃除します。
-        key = info["private_key"]
-        key = key.replace("\\n", "\n").replace(" ", "").replace("\n\n", "\n")
-        # 鍵のヘッダーとフッターを正規化
-        key = key.replace("-----BEGINPRIVATEKEY-----", "-----BEGIN PRIVATE KEY-----\n")
-        key = key.replace("-----ENDPRIVATEKEY-----", "\n-----END PRIVATE KEY-----")
-        info["private_key"] = key
-        
-        # 4. 認証実行
-        credentials = service_account.Credentials.from_service_account_info(info)
-        st.success("✅ スプレッドシートとの連携に成功しました！")
-        st.balloons()
-        st.write("隆生さんのデータを使って、当選確率を分析する準備が整いました。")
-    else:
-        st.error("Secretsの設定が読み込めません。")
+    # 2. JSONの取り出しとクリーンアップ
+    raw_json = st.secrets["gcp_service_account"]["json_key"]
+    info = json.loads(raw_json, strict=False)
+
+    # 3. 鍵のチェック（日本語の仮文字が入っていないか）
+    if "ここを！" in info.get("private_key", ""):
+        st.warning("⚠️ Secretsの中身がまだ『仮の文字』になっています。本物の鍵を貼り付けてください。")
+        st.stop()
+
+    # 4. 秘密鍵の改行コードを強制修正
+    info["private_key"] = info["private_key"].replace("\\n", "\n")
+
+    # 5. 認証実行
+    credentials = service_account.Credentials.from_service_account_info(info)
+    
+    st.success("✅ スプレッドシートとの連携に成功しました！完全勝利です！")
+    st.balloons()
+    st.info("隆生さん、お疲れ様でした！あとはiPhoneからこのURLを開くだけです。")
+
+except json.JSONDecodeError:
+    st.error("❌ Secretsに貼り付けたJSONの形が崩れています。{ } の前後を確認してください。")
 except Exception as e:
-    st.error(f"エラーが発生しました: {e}")
+    st.error(f"❌ 認証エラー: {e}")
+    st.info("鍵の中身（-----BEGIN...から...END KEY-----まで）が正しくコピーされているか確認してください。")
