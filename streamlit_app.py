@@ -1,37 +1,47 @@
 import streamlit as st
 from google.oauth2 import service_account
 import json
+import re
 
-st.set_page_config(page_title="toto分析システム", layout="wide")
+st.set_page_config(page_title="toto分析システム")
 st.title("🏆 toto 2等・3等 照準分析システム")
 
-# 1. Secretsの存在チェック
-if "gcp_service_account" not in st.secrets:
-    st.error("❌ StreamlitのSecrets設定が空っぽです。")
-    st.stop()
-
 try:
-    # 2. JSONの取り出しとクリーンアップ
-    raw_json = st.secrets["gcp_service_account"]["json_key"]
-    info = json.loads(raw_json, strict=False)
-
-    # 3. 鍵のチェック（日本語の仮文字が入っていないか）
-    if "ここを！" in info.get("private_key", ""):
-        st.warning("⚠️ Secretsの中身がまだ『仮の文字』になっています。本物の鍵を貼り付けてください。")
-        st.stop()
-
-    # 4. 秘密鍵の改行コードを強制修正
-    info["private_key"] = info["private_key"].replace("\\n", "\n")
-
-    # 5. 認証実行
-    credentials = service_account.Credentials.from_service_account_info(info)
-    
-    st.success("✅ スプレッドシートとの連携に成功しました！完全勝利です！")
-    st.balloons()
-    st.info("隆生さん、お疲れ様でした！あとはiPhoneからこのURLを開くだけです。")
-
-except json.JSONDecodeError:
-    st.error("❌ Secretsに貼り付けたJSONの形が崩れています。{ } の前後を確認してください。")
+    if "gcp_service_account" in st.secrets:
+        # 1. SecretsからJSONを取り出す
+        raw_json = st.secrets["gcp_service_account"]["json_key"]
+        
+        # 2. JSONとして読み込み
+        info = json.loads(raw_json, strict=False)
+        
+        # 3. 【最終兵器】秘密鍵の徹底クリーニング
+        key = info["private_key"]
+        
+        # 改行コードの修正
+        key = key.replace("\\n", "\n")
+        
+        # 全角ハイフンや特殊なダッシュを半角ハイフンに強制置換
+        key = key.replace("—", "--").replace("–", "--").replace("−", "-")
+        
+        # 制御文字や目に見えないゴミを正規表現で排除
+        key = re.sub(r'[^\x20-\x7E\n\r]', '', key)
+        
+        # ヘッダーとフッターの空白を整える
+        key = key.replace("-----BEGIN PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----\n")
+        key = key.replace("-----END PRIVATE KEY-----", "\n-----END PRIVATE KEY-----")
+        # 重複した改行を削除
+        key = re.sub(r'\n+', '\n', key)
+        
+        info["private_key"] = key.strip()
+        
+        # 4. 認証実行
+        credentials = service_account.Credentials.from_service_account_info(info)
+        
+        st.success("✅ スプレッドシートとの連携に成功しました！完全勝利です！")
+        st.balloons()
+        st.info("隆生さん、大変お待たせしました。あとはiPhoneでこの画面を開くだけです。")
+    else:
+        st.error("Secretsの設定が読み込めません。")
 except Exception as e:
     st.error(f"❌ 認証エラー: {e}")
-    st.info("鍵の中身（-----BEGIN...から...END KEY-----まで）が正しくコピーされているか確認してください。")
+    st.warning("もし解決しない場合は、Secretsの json_key = ''' の直後に、余計な空白がないか確認してください。")
