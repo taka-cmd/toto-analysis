@@ -1,3 +1,4 @@
-google-oauth2
+google-cloud-iam
+google-auth
 gspread-pandas
 pandas
